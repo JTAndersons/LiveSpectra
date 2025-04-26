@@ -153,7 +153,9 @@ class SpectraPlotter:
                         self.spectra_ready = True
                         self.IRspectra_ready = True
                                       
-                return (spectra_complete, IRspectra_complete)
+                    return (spectra_complete, IRspectra_complete)
+                
+                return False, False
                 
 
             except Exception as e:

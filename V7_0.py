@@ -89,7 +89,7 @@ class SpectraPlotter:
 
     def connect_serial(self):
         try:
-            self.ser = serial.Serial(self.com_port, self.baud_rate, timeout=0.1)
+            self.ser = serial.Serial(self.com_port, self.baud_rate, timeout=0.05)
             return True
         except serial.SerialException as e:
             print(f"Error opening serial port: {e}")
@@ -108,7 +108,6 @@ class SpectraPlotter:
 
     def read_spectra(self):
         with self.ser_lock:
-            self.ser.reset_input_buffer()
             start_command = "5"
             self.ser.write(start_command.encode('utf-8'))  
 
@@ -124,7 +123,7 @@ class SpectraPlotter:
                     for _ in range(296):
                         line = self.ser.readline().decode('utf-8').strip()
                         try:
-                            value = float(line)
+                            value = int(line)
                             intensities.append(value)
                         except ValueError:
                             continue
@@ -135,7 +134,7 @@ class SpectraPlotter:
                     for _ in range(256):
                         line = self.ser.readline().decode('utf-8').strip()
                         try:
-                            value = float(line)
+                            value = int(line)
                             intensitiesIR.append(value)
                         except ValueError:
                             continue
@@ -143,25 +142,27 @@ class SpectraPlotter:
                     spectra_complete = len(intensities) == 296 
                     IRspectra_complete = len(intensitiesIR) == 256  
 
-                    if not spectra_complete and not IRspectra_complete:
-                        return (False, False)
+                    if not spectra_complete and not IRspectra_complete:  
+                        return None
                     
-                    self.data_array = np.array(intensities)
-                    self.data_arrayIR = np.array(intensitiesIR)
 
-                    with self.data_lock:
-                        self.spectra_ready = True
-                        self.IRspectra_ready = True
-                                      
-                    return (spectra_complete, IRspectra_complete)
+
+                    if spectra_complete and IRspectra_complete:
+                        with self.data_lock:
+                            self.spectra_ready = True
+                            self.IRspectra_ready = True
+                        self.data_array = np.array(intensities)
+                        self.data_arrayIR = np.array(intensitiesIR)
+                    else:                
+                        return 
                 
-                return False, False
+                return None
                 
 
             except Exception as e:
                 print(f"An error occurred during spectrum read: {e}")
                 self.running = False 
-                return (False, False)
+                return None
     
 
 
@@ -200,7 +201,7 @@ class SpectraPlotter:
                     for _ in range(296):
                         line = self.ser.readline().decode('utf-8').strip()
                         try:
-                            value = float(line)
+                            value = int(line)
                             intensities.append(value)
                         except ValueError:
                             continue
@@ -211,16 +212,17 @@ class SpectraPlotter:
                     if spectra3_complete:
                         self.data_array3 = np.array(intensities)
                         self.latest_spectra3 = self.data_array3.copy()
+                        self.spectra3_ready = True
                         self.collected_data3.append(self.data_array3)
                                         
-                    return (spectra3_complete)
+                    return None
                 
-                return (False)
+                return None
 
             except Exception as e:
                 print(f"An error occurred during light spectrum read: {e}")
                 self.running = False 
-                return (False)
+                return None
     
 
 
@@ -228,9 +230,9 @@ class SpectraPlotter:
     def read_loop3(self):
         while self.running3:
             if self.reading_started3:
-                spectra3_ready = self.read_spectra3()
+                self.read_spectra3()
 
-                if spectra3_ready:
+                if self.spectra3_ready:
                     self.latest_spectra3 = self.data_array3.copy()
                 self.collected_data3.append(self.data_array3)
 

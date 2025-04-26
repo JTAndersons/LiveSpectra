@@ -107,6 +107,8 @@ class SpectraPlotter:
 
 
     def read_spectra(self):
+        self.spectra_ready = False
+        self.IRspectra_ready = False
         with self.ser_lock:
             start_command = "5"
             self.ser.write(start_command.encode('utf-8'))  
@@ -123,7 +125,7 @@ class SpectraPlotter:
                     for _ in range(296):
                         line = self.ser.readline().decode('utf-8').strip()
                         try:
-                            value = int(line)
+                            value = float(line)
                             intensities.append(value)
                         except ValueError:
                             continue
@@ -142,10 +144,9 @@ class SpectraPlotter:
                     spectra_complete = len(intensities) == 296 
                     IRspectra_complete = len(intensitiesIR) == 256  
 
-                    if not spectra_complete and not IRspectra_complete:  
+                    if not spectra_complete and not IRspectra_complete:
                         return None
                     
-
 
                     if spectra_complete and IRspectra_complete:
                         with self.data_lock:
@@ -153,8 +154,6 @@ class SpectraPlotter:
                             self.IRspectra_ready = True
                         self.data_array = np.array(intensities)
                         self.data_arrayIR = np.array(intensitiesIR)
-                    else:                
-                        return 
                 
                 return None
                 
@@ -171,14 +170,15 @@ class SpectraPlotter:
         while self.running:
             if self.reading_started:
 
-                spectra_ready, IRspectra_ready = self.read_spectra()
+                self.read_spectra()
 
-                if spectra_ready and IRspectra_ready:
+                if self.spectra_ready and self.IRspectra_ready:
                     with self.data_lock:
                         self.latest_spectra = self.data_array.copy()
                         self.latest_spectraIR = self.data_arrayIR.copy()                        
                     self.collected_data.append(self.data_array)
                     self.collected_dataIR.append(self.data_arrayIR)
+
 
 
             else:
@@ -197,25 +197,23 @@ class SpectraPlotter:
                     _ = self.ser.readline()
 
                     
-                    intensities = []
+                    intensities3 = []
                     for _ in range(296):
                         line = self.ser.readline().decode('utf-8').strip()
                         try:
                             value = int(line)
-                            intensities.append(value)
+                            intensities3.append(value)
                         except ValueError:
                             continue
                     
 
-                    spectra3_complete = len(intensities) == 296 
+                    spectra3_complete = len(intensities3) == 296 
 
                     if spectra3_complete:
-                        self.data_array3 = np.array(intensities)
-                        self.latest_spectra3 = self.data_array3.copy()
-                        self.spectra3_ready = True
-                        self.collected_data3.append(self.data_array3)
+                        self.data_array3 = np.array(intensities3)
+
                                         
-                    return None
+                    return 
                 
                 return None
 
@@ -229,11 +227,8 @@ class SpectraPlotter:
 
     def read_loop3(self):
         while self.running3:
-            if self.reading_started3:
-                self.read_spectra3()
-
-                if self.spectra3_ready:
-                    self.latest_spectra3 = self.data_array3.copy()
+            self.read_spectra3()
+            if self.data_array3 is not None:
                 self.collected_data3.append(self.data_array3)
 
             else:
@@ -244,13 +239,11 @@ class SpectraPlotter:
     def update_plot(self):
         if self.reading_started:
             with self.data_lock:
-                if self.spectra_ready and self.latest_spectra is not None:
+                if self.latest_spectra is not None:
                     self.curve.setData(self.nm, self.latest_spectra)
-                    self.spectra_ready = False
 
-                if self.IRspectra_ready and self.latest_spectraIR is not None:
+                if self.latest_spectraIR is not None:
                     self.curveIR.setData(self.nmIR, self.latest_spectraIR)
-                    self.IRspectra_ready = False
 
     
     def instant_measurement(self):
@@ -427,4 +420,3 @@ class SpectraPlotter:
 
 if __name__ == "__main__":
     plotter = SpectraPlotter(COM_PORT, BAUD_RATE)
-    plotter.run()

@@ -224,7 +224,6 @@ class SpectraPlotter:
                 print(f"An error occurred during light spectrum read: {e}")
                 self.running = False 
                 return None
-
     
     def read_loop3(self):
         while self.running3:
@@ -234,7 +233,6 @@ class SpectraPlotter:
             else:
                 time.sleep(0.05)
 
-    
     def update_plot(self):
         if self.reading_started:
             with self.data_lock:
@@ -333,11 +331,12 @@ class SpectraPlotter:
             start_time = time.time()   
 
             while (time.time() - start_time) < duration:
-                self.read_spectra3()
                 QtWidgets.QApplication.processEvents() 
                 time.sleep(0.05) 
             
             self.reading_started3 = False
+
+            time.sleep(0.05)
 
             with self.ser_lock:
                 self.ser.reset_input_buffer()
@@ -361,10 +360,10 @@ class SpectraPlotter:
                         f.write(' '.join(map(str, row)) + '\n') 
                 
             
+            self.reading_started = True           
 
             QtWidgets.QApplication.restoreOverrideCursor()
 
-            self.reading_started = True
                 
         except Exception as e:
             QtWidgets.QApplication.restoreOverrideCursor()

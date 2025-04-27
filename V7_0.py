@@ -224,8 +224,17 @@ class SpectraPlotter:
                 print(f"An error occurred during light spectrum read: {e}")
                 self.running = False 
                 return None
-    
 
+    
+    def read_loop3(self):
+        while self.running3:
+            if self.reading_started3:
+                self.read_spectra3()
+
+            else:
+                time.sleep(0.05)
+
+    
     def update_plot(self):
         if self.reading_started:
             with self.data_lock:

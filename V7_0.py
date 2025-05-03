@@ -8,8 +8,7 @@ import traceback
 import threading
 import queue
 
-# Serial port configuration
-COM_PORT = "/dev/ttyACM0"  # Replace with your actual COM port
+COM_PORT = "/dev/ttyACM0" 
 BAUD_RATE = 115200
 
 class SpectraPlotter:
@@ -17,7 +16,7 @@ class SpectraPlotter:
         self.com_port = com_port
         self.baud_rate = baud_rate
         self.ser = None
-        self.app = pg.mkQApp("Real-time Spectra Plotting")
+        self.app = pg.mkQApp("Real-time Spectra")
 
         pg.setConfigOption('background', 'w')
         
@@ -34,7 +33,7 @@ class SpectraPlotter:
 
         self.plot = self.plot_widget.addPlot(title="Visible Spectra")
         self.curve = self.plot.plot(pen='#0000FF')
-        self.nm = np.linspace(340, 850, 296)  # wavelength range
+        self.nm = np.linspace(340, 850, 296) 
         self.plot.setLabel('left', 'Intensity')
         self.plot.setLabel('bottom', 'Wavelength (nm)')
 
@@ -43,22 +42,19 @@ class SpectraPlotter:
         # Infrasarkanais
         self.plotIR = self.plot_widget.addPlot(title="Infrared Spectra")
         self.curveIR = self.plotIR.plot(pen='r')
-        self.nmIR = np.linspace(640, 1050, 256)  # wavelength range
+        self.nmIR = np.linspace(640, 1050, 256) 
         self.plotIR.setLabel('left', 'Intensity')
         self.plotIR.setLabel('bottom', 'Wavelength (nm)')
-
         
-        # Buttons5
+        # Buttons
         button_layout = QtWidgets.QHBoxLayout()
         main_layout.addLayout(button_layout)
         
         self.instant_button = QtWidgets.QPushButton("Measurement")
         self.instant3_button = QtWidgets.QPushButton("3rd Spectra")
         
-
         button_layout.addWidget(self.instant_button)
         button_layout.addWidget(self.instant3_button)
-
 
         self.instant_button.clicked.connect(self.instant_measurement)
         self.instant3_button.clicked.connect(self.instant_measurement3)
@@ -80,7 +76,6 @@ class SpectraPlotter:
         self.latest_spectraIR = None
         self.latest_spectra3 = None
 
-
         self.spectra_ready = False
         self.IRspectra_ready = False
         self.spectra3_ready = False
@@ -89,7 +84,7 @@ class SpectraPlotter:
 
     def connect_serial(self):
         try:
-            self.ser = serial.Serial(self.com_port, self.baud_rate, timeout=0.05)
+            self.ser = serial.Serial(self.com_port, self.baud_rate, timeout=0.5)
             return True
         except serial.SerialException as e:
             print(f"Error opening serial port: {e}")
@@ -100,10 +95,7 @@ class SpectraPlotter:
 
 
     def stop_reading(self):
-        self.reading_started = False 
-
-
-
+        self.reading_started = False
 
 
     def read_spectra(self):
@@ -112,12 +104,12 @@ class SpectraPlotter:
             self.ser.write(start_command.encode('utf-8'))  
 
             try:
+                
                 if self.ser.in_waiting:
-
                     _ = self.ser.readline()
                     _ = self.ser.readline()
-
                     
+
                     intensities = []
                     for _ in range(296):
                         line = self.ser.readline().decode('utf-8').strip()
@@ -136,57 +128,41 @@ class SpectraPlotter:
                             value = int(line)
                             intensitiesIR.append(value)
                         except ValueError:
-                            #intensitiesIR.append(0)  
                             continue
-
-                    spectra_complete = len(intensities) == 296 
-                    IRspectra_complete = len(intensitiesIR) == 256  
-
-                    if not spectra_complete and not IRspectra_complete:  
-                        return None
                     
-
+                    spectra_complete = len(intensities) == 296 
+                    IRspectra_complete = len(intensitiesIR) == 256
 
                     if spectra_complete and IRspectra_complete:
-                        with self.data_lock:
-                            self.data_array = np.array(intensities)
-                            self.data_arrayIR = np.array(intensitiesIR)
+                        self.data_array = np.array(intensities)
+                        self.data_arrayIR = np.array(intensitiesIR)
                         self.spectra_ready = True
-                        self.IRspectra_ready = True                            
-                    else:                
-                        return None
-                
-                return None
-                
+                        self.IRspectra_ready = True
+                        
+                        self.latest_spectra = self.data_array.copy()
+                        self.latest_spectraIR = self.data_arrayIR.copy()
 
+                
             except Exception as e:
                 print(f"An error occurred during spectrum read: {e}")
-                self.running = False 
+                traceback.print_exc()
                 return None
-    
-
-
 
     def read_loop(self):
         while self.running:
             if self.reading_started:
-
                 self.read_spectra()
-
+                
                 if self.spectra_ready and self.IRspectra_ready:
                     with self.data_lock:
-                        self.latest_spectra = self.data_array.copy()
-                        self.latest_spectraIR = self.data_arrayIR.copy()                        
-                        self.collected_data.append(self.data_array)
-                        self.collected_dataIR.append(self.data_arrayIR)
+                        self.collected_data.append(self.latest_spectra.copy())
+                        self.collected_dataIR.append(self.latest_spectraIR.copy())
+                    
                     self.spectra_ready = False
                     self.IRspectra_ready = False
-
-
-
+                
             else:
                 time.sleep(0.05)
-    
 
     def read_spectra3(self):
         with self.ser_lock:
@@ -194,11 +170,9 @@ class SpectraPlotter:
             self.ser.write(start_command.encode('utf-8'))  
 
             try:
+                
                 if self.ser.in_waiting:
-
-                    # Discard text line
                     _ = self.ser.readline()
-
                     
                     intensities = []
                     for _ in range(296):
@@ -209,50 +183,41 @@ class SpectraPlotter:
                         except ValueError:
                             continue
                     
-
                     spectra3_complete = len(intensities) == 296 
 
                     if spectra3_complete:
                         self.data_array3 = np.array(intensities)
+                        self.latest_spectra3 = self.data_array3.copy()
                         self.collected_data3.append(self.data_array3)
-                                        
-                    return None
                 
-                return None
-
             except Exception as e:
                 print(f"An error occurred during light spectrum read: {e}")
-                self.running = False 
+                traceback.print_exc()
                 return None
     
     def read_loop3(self):
         while self.running3:
             if self.reading_started3:
                 self.read_spectra3()
-
             else:
                 time.sleep(0.05)
 
     def update_plot(self):
-        if self.reading_started:
-            with self.data_lock:
-                #if self.spectra_ready and self.latest_spectra is not None:
+        try:
+            if self.latest_spectra is not None:
                 self.curve.setData(self.nm, self.latest_spectra)
 
-                #if self.IRspectra_ready and self.latest_spectraIR is not None:
+            if self.latest_spectraIR is not None:
                 self.curveIR.setData(self.nmIR, self.latest_spectraIR)
-
+                
+        except Exception as e:
+            print(f"Error updating plot: {e}")
+            traceback.print_exc()
     
     def instant_measurement(self):
         try:
-
-
             self.stop_reading()
-
-
             duration = 5
-
-            # Ask user where to save the file
             filename = time.strftime("Spektri_%Y%m%d-%H%M%S.txt") 
 
             with self.data_lock:
@@ -273,7 +238,6 @@ class SpectraPlotter:
                 
             self.stop_reading()
 
-
             if not self.collected_data and not self.collected_dataIR:
                 QtWidgets.QApplication.restoreOverrideCursor()
                 QtWidgets.QMessageBox.warning(
@@ -282,7 +246,6 @@ class SpectraPlotter:
                     "No spectra measured."
                 )
                 return
-
 
             with open(filename, 'w') as f:
                 if self.collected_data:
@@ -307,19 +270,13 @@ class SpectraPlotter:
             traceback.print_exc()
             print(f"Error saving spectra: {e}")
 
-
     def instant_measurement3(self):
         try:
-
-
             self.reading_started = False
-
             duration = 3
-
             filename = time.strftime("Gaisma_%Y%m%d-%H%M%S.txt") 
 
             self.collected_data3 = []
-
 
             QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
 
@@ -351,31 +308,22 @@ class SpectraPlotter:
                 )
                 return
 
-
             with open(filename, 'w') as f:
                 if self.collected_data3:
                     spectra3_saved = np.array(self.collected_data3).T
                     f.write(" #Falling light Spectra\n")
                     for row in spectra3_saved:
                         f.write(' '.join(map(str, row)) + '\n') 
-                
             
             self.reading_started = True           
-
             QtWidgets.QApplication.restoreOverrideCursor()
-
                 
         except Exception as e:
             QtWidgets.QApplication.restoreOverrideCursor()
             traceback.print_exc()
             print(f"Error saving falling spectra: {e}")
-        
-
-
-
 
     def run(self):
-
         if not self.connect_serial():
             QtWidgets.QMessageBox.warning(
                 self.main_window,
@@ -388,6 +336,8 @@ class SpectraPlotter:
         self.reading_started = True
         self.running3 = True
         self.reading_started3 = False
+        
+
         data_thread = threading.Thread(target=self.read_loop)
         data3_thread = threading.Thread(target=self.read_loop3)
         data_thread.daemon = True 
@@ -397,25 +347,22 @@ class SpectraPlotter:
 
         timer = pg.QtCore.QTimer()
         timer.timeout.connect(self.update_plot)
-        timer.start(1000)
+        timer.start(1000)  
 
         self.app.exec() 
         self.running = False
         self.running3 = False 
-        data_thread.join()
-        data3_thread.join() 
-        self.ser.close()
-
+        data_thread.join(timeout=1.0)
+        data3_thread.join(timeout=1.0)
+        
         if self.ser and self.ser.is_open:
             self.ser.close()
 
-        
         exit_app = QtWidgets.QApplication([])
         msg_box = QtWidgets.QMessageBox()
         msg_box.setWindowTitle("Application Finished")
         msg_box.setText("Click OK to exit.")
         msg_box.exec()
-
 
 if __name__ == "__main__":
     plotter = SpectraPlotter(COM_PORT, BAUD_RATE)

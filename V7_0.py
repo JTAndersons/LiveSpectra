@@ -51,18 +51,15 @@ class Sperctra3Worker(QObject):
                         while b'\n' in buf:
                             line, _, buf = buf.partition(b'\n')
                             try:
-                                intensities.append(int(line.strip()))
+                                intensities.append(float(line))
                             except ValueError:
                                 continue
                         if not chunk:
                             time.sleep(0.005)
 
-                    spectra3_complete = len(intensities) == 296
-
-                    if spectra3_complete:
-                        data_array3 = np.array(intensities)
-                        with self.data_lock:
-                            self.spectra3_ready.emit(data_array3)
+                    data_array3 = np.array(intensities)
+                    with self.data_lock:
+                        self.spectra3_ready.emit(data_array3)
                 else:
                     time.sleep(0.05)
                         

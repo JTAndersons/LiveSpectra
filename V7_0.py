@@ -16,7 +16,7 @@ BAUD_RATE = 115200
 class Sperctra3Worker(QObject):
 
     spectra3_ready = Signal(np.ndarray)
-    finshed = Signal()
+    finished = Signal()
     error = Signal(str)
 
 
@@ -158,9 +158,6 @@ class SpectraPlotter(QObject):
         self.reading_started = False 
 
 
-
-
-
     def read_spectra(self):
         with self.ser_lock:
             self.ser.reset_input_buffer()
@@ -217,8 +214,6 @@ class SpectraPlotter(QObject):
                 self.running = False 
                 return (False, False)
     
-
-
 
     def read_loop(self):
         while self.running:
@@ -367,7 +362,7 @@ class SpectraPlotter(QObject):
 
         self.thread3.started.connect(self.worker3.run)
         self.worker3.spectra3_ready.connect(self.update_spectra3)
-        self.worker3.error.connect(print("3rd spectra error"))
+        self.worker3.error.connect(lambda msg: print("3rd spectra error:", msg))
         self.worker3.finished.connect(self.worker3_finsihed)
         self.thread3.finished.connect(self.thread3.quit)
 

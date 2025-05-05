@@ -12,6 +12,62 @@ import queue
 COM_PORT = "/dev/ttyACM0"  # Replace with your actual COM port
 BAUD_RATE = 115200
 
+
+class Sperctra3Worker(QtCore.QObject):
+
+    spectra3_ready = QtCore.pyqtSignal(np.ndarray)
+    finshed = QtCore.pyqtSignal()
+    error = QtCore.pyqtSignal(str)
+
+
+    def __init__(self, ser, ser_lock, in_waiting, data_lock, duration, parent=None):
+        super().__init__(parent)
+        self.ser = ser
+        self.ser_lock = ser_lock
+        self.in_waiting = in_waiting
+        self.data_lock = data_lock
+        self.duration = duration
+
+    @QtCore.pyqtSlot()
+    def run(self):
+        end_time = time.time() + self.duration
+        try:
+            while time.time() < end_time:
+                with self.ser_lock:
+                    command = "3"
+                    self.ser.write(command.encode('utf-8'))
+
+                if self.ser.in_waiting:
+                    _ = self.ser.readline()
+
+                    intensities = []
+                    for _ in range(296):
+                        line = self.ser.readline().decode('utf-8').strip()
+                        try:
+                            value = int(line)
+                            intensities.append(value)
+                        except ValueError:
+                            continue
+
+                    spectra3_complete = len(intensities) == 296
+
+                    if spectra3_complete:
+                        data_array3 = np.array(intensities)
+                        with self.data_lock:
+                            self.spectra3_ready.emit(data_array3)
+                else:
+                    time.sleep(0.05)
+                        
+
+        except Exception as e:
+            self.error.emit(str(e))
+
+        finally:
+            self.finished.emit()
+
+
+
+
 class SpectraPlotter(QtCore.QObject):
     def __init__(self, com_port, baud_rate):
         super().__init__()
@@ -114,7 +170,6 @@ class SpectraPlotter(QtCore.QObject):
             try:
                 if self.ser.in_waiting:
 
-                    # Discard text line
                     _ = self.ser.readline()
                     _ = self.ser.readline()
 
@@ -297,47 +352,39 @@ class SpectraPlotter(QtCore.QObject):
 
 
     def instant_measurement3(self):
-        try:
 
+        self.stop_reading()
+        duration = 5
+        self.collected_data3 = []
+        QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
 
-            self.stop_reading()
-            duration = 5
-            self.collected_data3 = []
-
-
-            QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
-
-            with self.ser_lock:
-                self.ser.reset_input_buffer()
-                
+        with self.ser_lock:
+            self.ser.reset_input_buffer()
             
-            start_time = time.time() 
-            self._end_time3 = start_time + duration
-            self.timer3 = QtCore.QTimer(self)
-            self.timer3.timeout.connect(self.measure3_step)
-            self.timer3.start(250)
-        
-        except Exception:
-            QtWidgets.QApplication.restoreOverrideCursor()
-            traceback.print_exc()
+        self.worker3 = Sperctra3Worker(self.ser, self.ser_lock, self.ser.in_waiting, self.data_lock, duration)
+        self.thread3 = QtCore.QThread(self)
+        self.worker3.moveToThread(self.thread3)
+
+        self.thread3.started.connect(self.worker3.run)
+        self.worker3.spectra3_ready.connect(self.update_spectra3)
+        self.worker3.error.connect(print("3rd spectra error"))
+        self.worker3.finished.connect(self.worker3_finsihed)
+        self.thread3.finished.connect(self.thread3.quit)
+
+        self.thread3.start()
 
 
-    def measure3_step(self):
+    def update_spectra3(self, spectrum3: np.ndarray):
+        with self.data_lock:
+            self.collected_data3.append(spectrum3)
+
+    def worker3_finsihed(self):
         try:
-            if time.time() >= self._end_time3:
-                self.timer3.stop()
-                self.save_spectra3()
-                return
-            
-            read = self.read_spectra3()
-            if read:
-                self.collected_data3.append(self.latest_spectra3)      
-
-
-        except Exception:
-            self.timer3.stop()
+            self.save_spectra3()
+        finally:
             QtWidgets.QApplication.restoreOverrideCursor()
-            traceback.print_exc()
+            self.thread3.quit()
+
 
 
     def save_spectra3(self):

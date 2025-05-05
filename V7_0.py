@@ -363,7 +363,7 @@ class SpectraPlotter(QObject):
         self.thread3.started.connect(self.worker3.run)
         self.worker3.spectra3_ready.connect(self.update_spectra3)
         self.worker3.error.connect(lambda msg: print("3rd spectra error:", msg))
-        self.worker3.finished.connect(self.worker3_finsihed)
+        self.worker3.finished.connect(self.worker3_finished)
         self.thread3.finished.connect(self.thread3.quit)
 
         self.thread3.start()
@@ -373,7 +373,7 @@ class SpectraPlotter(QObject):
         with self.data_lock:
             self.collected_data3.append(spectrum3)
 
-    def worker3_finsihed(self):
+    def worker3_finished(self):
         try:
             self.save_spectra3()
         finally:

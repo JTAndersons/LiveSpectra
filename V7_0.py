@@ -1,23 +1,23 @@
 import serial
 import time
-import struct
 import numpy as np
 import pyqtgraph as pg
-from pyqtgraph.Qt import QtWidgets, QtCore
+from PySide6.QtCore import QObject, Signal, Slot, QThread, QTimer
+from PySide6.QtWidgets import QApplication, QMainWindow, QMessageBox
+from PySide6 import QtCore, QtWidgets
 import traceback
 import threading
-import queue
 
 # Serial port configuration
 COM_PORT = "/dev/ttyACM0"  # Replace with your actual COM port
 BAUD_RATE = 115200
 
 
-class Sperctra3Worker(QtCore.QObject):
+class Sperctra3Worker(QObject):
 
-    spectra3_ready = QtCore.pyqtSignal(np.ndarray)
-    finshed = QtCore.pyqtSignal()
-    error = QtCore.pyqtSignal(str)
+    spectra3_ready = Signal(np.ndarray)
+    finshed = Signal()
+    error = Signal(str)
 
 
     def __init__(self, ser, ser_lock, in_waiting, data_lock, duration, parent=None):
@@ -28,7 +28,7 @@ class Sperctra3Worker(QtCore.QObject):
         self.data_lock = data_lock
         self.duration = duration
 
-    @QtCore.pyqtSlot()
+    @Slot()
     def run(self):
         end_time = time.time() + self.duration
         try:
@@ -68,7 +68,7 @@ class Sperctra3Worker(QtCore.QObject):
 
 
 
-class SpectraPlotter(QtCore.QObject):
+class SpectraPlotter(QObject):
     def __init__(self, com_port, baud_rate):
         super().__init__()
         self.com_port = com_port

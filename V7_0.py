@@ -300,7 +300,7 @@ class SpectraPlotter(QtCore.QObject):
         try:
 
 
-            self.reading_started = False
+            self.stop_reading()
             duration = 5
             self.collected_data3 = []
 
@@ -326,7 +326,6 @@ class SpectraPlotter(QtCore.QObject):
         try:
             if time.time() >= self._end_time3:
                 self.timer3.stop()
-                QtWidgets.QApplication.restoreOverrideCursor()
                 self.save_spectra3()
                 return
             
@@ -352,7 +351,6 @@ class SpectraPlotter(QtCore.QObject):
             filename3 = time.strftime("Gaisma_%Y%m%d-%H%M%S.txt") 
 
             if not self.collected_data3:
-                QtWidgets.QApplication.restoreOverrideCursor()
                 QtWidgets.QMessageBox.warning(
                     self.main_window,
                     "No Data",
@@ -369,15 +367,15 @@ class SpectraPlotter(QtCore.QObject):
                         f.write(' '.join(map(str, row)) + '\n') 
                 
             
-
-            #QtWidgets.QApplication.restoreOverrideCursor()
-
-            self.reading_started = True
                 
         except Exception as e:
-            QtWidgets.QApplication.restoreOverrideCursor()
             traceback.print_exc()
+            QtWidgets.QApplication.restoreOverrideCursor()
             print(f"Error saving spectra: {e}")
+
+        finally: 
+            QtWidgets.QApplication.restoreOverrideCursor()
+            self.start_reading()
         
 
 

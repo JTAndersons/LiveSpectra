@@ -315,7 +315,7 @@ class SpectraPlotter(QtCore.QObject):
             self._end_time3 = start_time + duration
             self.timer3 = QtCore.QTimer(self)
             self.timer3.timeout.connect(self.measure3_step)
-            self.timer3.start(50)
+            self.timer3.start(250)
         
         except Exception:
             QtWidgets.QApplication.restoreOverrideCursor()

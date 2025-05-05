@@ -35,19 +35,27 @@ class Sperctra3Worker(QObject):
             while time.time() < end_time:
                 with self.ser_lock:
                     command = "3"
+                    buf = bytearray()
                     self.ser.write(command.encode('utf-8'))
+                    deadline = time.time() + 1.0
 
                 if self.ser.in_waiting:
                     _ = self.ser.readline()
 
                     intensities = []
-                    for _ in range(296):
-                        line = self.ser.readline().decode('utf-8').strip()
-                        try:
-                            value = int(line)
-                            intensities.append(value)
-                        except ValueError:
-                            continue
+                    while time.time() < deadline and len(intensities) < 296:
+                        n= self.ser.in_waiting
+                        chunk = self.ser.read(n or 1)
+                        buf.extend(chunk)
+
+                        while b'\n' in buf:
+                            line, _, buf = buf.partition(b'\n')
+                            try:
+                                intensities.append(int(line.strip()))
+                            except ValueError:
+                                continue
+                        if not chunk:
+                            time.sleep(0.005)
 
                     spectra3_complete = len(intensities) == 296
 
